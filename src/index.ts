@@ -1,18 +1,15 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import towberOrders from "./routes/towber-orders";
-import { config } from "dotenv";
 import { logger } from "hono/logger";
+import towberOrders from "./routes/towber-orders";
 import { dbMiddleware } from "./middleware/db";
-config({ path: ".dev.vars" });
-// const app = new Hono().basePath("/api");
-const app = new Hono();
+
+const app = new Hono().basePath("/api");
 
 // Middleware
 app.use("*", logger());
 app.use("/*", cors());
-// app.use("*", dbMiddleware());
-app.use("api/*", dbMiddleware());
+app.use("*", dbMiddleware());
 
 app.get("/health", (c) =>
   c.json({
@@ -21,8 +18,8 @@ app.get("/health", (c) =>
     date: new Date(),
   })
 );
-// app.basePath("api").route("/orders", towberOrders);
+
 // Routes
-// app.route("/orders", towberOrders);
+app.route("/orders", towberOrders);
 
 export default app;

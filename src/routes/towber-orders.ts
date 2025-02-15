@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Env, Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import {
@@ -10,11 +10,7 @@ import {
 } from "../db/queries/towber-orders";
 import { serviceEnum } from "../db/schema";
 
-export type Env = {
-  db: any; // Define the type for the db binding
-};
-
-const towberOrders = new Hono<{ Bindings: Env }>();
+const towberOrders = new Hono();
 
 // Validation schema
 const towberOrderSchema = z.object({
@@ -44,7 +40,8 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
 // Get all orders
 towberOrders.get("/", async (c) => {
   try {
-    const orders = await getAllTowberOrders();
+    const db = c.get("db"); // Access the database instance
+    const orders = await getAllTowberOrders(db);
     return c.json(orders);
   } catch (error) {
     return c.json({ error: "Internal server error" }, 500);
@@ -55,7 +52,8 @@ towberOrders.get("/", async (c) => {
 towberOrders.get("/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    const order = await getTowberOrderById(id);
+    const db = c.get("db"); // Access the database instance
+    const order = await getTowberOrderById(id, db);
     if (!order) {
       return c.json({ error: "Order not found" }, 404);
     }
@@ -73,7 +71,8 @@ towberOrders.patch(
     try {
       const id = c.req.param("id");
       const data = c.req.valid("json");
-      const updatedOrder = await updateTowberOrder(id, data);
+      const db = c.get("db"); // Access the database instance
+      const updatedOrder = await updateTowberOrder(id, data, db);
       if (!updatedOrder) {
         return c.json({ error: "Order not found" }, 404);
       }
@@ -88,7 +87,8 @@ towberOrders.patch(
 towberOrders.delete("/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    const success = await deleteTowberOrder(id);
+    const db = c.get("db"); // Access the database instance
+    const success = await deleteTowberOrder(id, db);
     if (!success) {
       return c.json({ error: "Order not found" }, 404);
     }

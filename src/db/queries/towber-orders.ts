@@ -1,5 +1,4 @@
 import { eq } from "drizzle-orm";
-import { db } from "../drizzle";
 import { towberOrders } from "../schema";
 import { TowberOrder, NewTowberOrder } from "./types";
 
@@ -15,13 +14,16 @@ export async function createTowberOrder(
 }
 
 // Get all orders
-export async function getAllTowberOrders(): Promise<TowberOrder[]> {
+export async function getAllTowberOrders(
+  db: any // Accept the db instance
+): Promise<TowberOrder[]> {
   return await db.select().from(towberOrders);
 }
 
 // Get order by ID
 export async function getTowberOrderById(
-  id: string
+  id: string,
+  db: any // Accept the db instance
 ): Promise<TowberOrder | null> {
   const [order] = await db
     .select()
@@ -33,7 +35,8 @@ export async function getTowberOrderById(
 // Update order
 export async function updateTowberOrder(
   id: string,
-  updates: Partial<NewTowberOrder>
+  updates: Partial<NewTowberOrder>,
+  db: any // Accept the db instance
 ): Promise<TowberOrder | null> {
   const [updatedOrder] = await db
     .update(towberOrders)
@@ -47,7 +50,10 @@ export async function updateTowberOrder(
 }
 
 // Delete order
-export async function deleteTowberOrder(id: string): Promise<boolean> {
+export async function deleteTowberOrder(
+  id: string,
+  db: any // Accept the db instance
+): Promise<boolean> {
   const [deletedOrder] = await db
     .delete(towberOrders)
     .where(eq(towberOrders.id, id))
