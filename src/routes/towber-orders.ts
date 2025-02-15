@@ -7,10 +7,17 @@ import {
   getTowberOrderById,
   updateTowberOrder,
   deleteTowberOrder,
+  sendTelegramMessage,
 } from "../db/queries/towber-orders";
 import { serviceEnum } from "../db/schema";
 
-const towberOrders = new Hono();
+export type Env = {
+  db: any; // Define the type for the db binding
+  TELEGRAM_BOT_TOKEN: string;
+  TELEGRAM_CHAT_ID: string;
+};
+
+const towberOrders = new Hono<{ Bindings: Env }>();
 
 // Validation schema
 const towberOrderSchema = z.object({
@@ -31,6 +38,18 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
     const data = c.req.valid("json");
     const db = c.get("db"); // Access the database instance
     const newOrder = await createTowberOrder(data, db); // Pass db to your function
+    // Prepare the message to send to Telegram
+    const message = `New Order Created:
+      Customer Name: ${newOrder.customerName}
+      Phone Number: ${newOrder.phoneNumber}
+      License Plate: ${newOrder.licensePlate}
+      Current Location: ${newOrder.location}
+      Destination: ${newOrder.destination}
+      Service: ${newOrder.selectedService}
+      Date: ${newOrder.createdAt}
+      `;
+    // Send the message to Telegram
+    await sendTelegramMessage(message, c);
     return c.json(newOrder, 201);
   } catch (error) {
     return c.json({ error: "Internal server error" }, 500);

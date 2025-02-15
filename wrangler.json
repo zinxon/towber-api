@@ -5,6 +5,5 @@
   "compatibility_date": "2025-02-04",
   "compatibility_flags": ["nodejs_compat_v2"],
   "vars": {
-    "DATABASE_URL": "postgresql://postgres:cLATzMuYShYyZdEI@db.sukjtbgoudpowcgykcxe.supabase.co:5432/postgres"
   }
 }
