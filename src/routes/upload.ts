@@ -9,7 +9,7 @@ export type Env = {
 const uploadRoutes = new Hono<{ Bindings: Env }>();
 
 // Handle file uploads directly
-uploadRoutes.put(async (c) => {
+uploadRoutes.post(async (c) => {
   try {
     // const key = c.req.param("key");
     const key = nanoid(10);

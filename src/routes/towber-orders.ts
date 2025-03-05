@@ -10,14 +10,20 @@ import {
   sendTelegramMessage,
 } from "../db/queries/towber-orders";
 import { serviceEnum } from "../db/schema";
+import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import * as schema from "../db/schema";
 
-export type Env = {
-  db: any; // Define the type for the db binding
+export type Bindings = {
+  DATABASE_URL: string;
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_CHAT_ID: string;
 };
 
-const towberOrders = new Hono<{ Bindings: Env }>();
+export type Variables = {
+  db: PostgresJsDatabase<typeof schema>;
+};
+
+const towberOrders = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // Validation schema
 const towberOrderSchema = z.object({
@@ -30,6 +36,7 @@ const towberOrderSchema = z.object({
   latitude: z.number().min(-90).max(90).transform(String),
   longitude: z.number().min(-180).max(180).transform(String),
   useWheel: z.boolean(),
+  imageKeys: z.array(z.string()).optional().default([]),
 });
 
 // Create order
@@ -37,7 +44,15 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
   try {
     const data = c.req.valid("json");
     const db = c.get("db"); // Access the database instance
-    const newOrder = await createTowberOrder(data, db); // Pass db to your function
+
+    // Ensure imageKeys is included in the data
+    const orderData = {
+      ...data,
+      imageKeys: data.imageKeys || [], // Ensure imageKeys is always an array
+    };
+
+    const newOrder = await createTowberOrder(orderData, db);
+
     // Prepare the message to send to Telegram
     const message = `New Order Created:
       Customer Name: ${newOrder.customerName}
@@ -47,11 +62,24 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
       Destination: ${newOrder.destination}
       Service: ${newOrder.selectedService}
       Date: ${newOrder.createdAt}
+      ${
+        (newOrder.imageKeys || []).length > 0
+          ? `Images:
+${(newOrder.imageKeys || [])
+  .map(
+    (key, index) =>
+      `${index + 1}. https://towber-api.shingsonz.workers.dev/api/upload/${key}`
+  )
+  .join("\n")}`
+          : "Images: No images"
+      }
       `;
+
     // Send the message to Telegram
     await sendTelegramMessage(message, c);
     return c.json(newOrder, 201);
   } catch (error) {
+    console.error("Error creating order:", error);
     return c.json({ error: "Internal server error" }, 500);
   }
 });

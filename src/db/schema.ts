@@ -8,6 +8,7 @@ import {
   uuid,
   timestamp,
   pgEnum,
+  PgArray,
 } from "drizzle-orm/pg-core";
 
 export const megacitySchema = pgSchema("megacity");
@@ -40,4 +41,5 @@ export const towberOrders = megacitySchema.table("towber_orders", {
   updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
     .defaultNow()
     .notNull(),
+  imageKeys: text("image_keys").array().default([]), // Store multiple image keys as an array
 });
