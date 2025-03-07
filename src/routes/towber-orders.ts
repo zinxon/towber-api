@@ -59,26 +59,23 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
         ? `https://towber-api.shingsonz.workers.dev/api/upload/${newOrder.imageKeys[0]}\n\n`
         : "";
 
-    const message = `${firstImageUrl}🚗 NEW TOWING ORDER 🚗
-
+    const message = `🚗 NEW TOWING ORDER 🚗
 📋 ORDER DETAILS
 • Customer: ${newOrder.customerName}
 • Phone: ${newOrder.phoneNumber}
 • License Plate: ${newOrder.licensePlate}
 • Service Type: ${newOrder.selectedService}
-
 ⏰ TIME
 • Created: ${new Date(newOrder.createdAt).toLocaleString("en-US", {
       timeZone: "America/Toronto",
       year: "numeric",
-      month: "long",
+      month: "short",
       day: "numeric",
       hour: "numeric",
       minute: "numeric",
-      weekday: "long",
+      weekday: "short",
       hour12: true,
-    })} EST
-
+    })}
 ${
   (newOrder.imageKeys || []).length > 0
     ? `📸 IMAGES
@@ -90,7 +87,6 @@ ${(newOrder.imageKeys || [])
   .join("\n")}`
     : "📸 No images attached"
 }
-
 📍 LOCATION DETAILS
 • Pickup: ${newOrder.location}
 • Destination: ${newOrder.destination}
