@@ -54,26 +54,50 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
     const newOrder = await createTowberOrder(orderData, db);
 
     // Prepare the message to send to Telegram
-    const message = `New Order Created:
-      Customer Name: ${newOrder.customerName}
-      Phone Number: ${newOrder.phoneNumber}
-      License Plate: ${newOrder.licensePlate}
-      Current Location: ${newOrder.location}
-      Destination: ${newOrder.destination}
-      Service: ${newOrder.selectedService}
-      Date: ${newOrder.createdAt}
-      ${
-        (newOrder.imageKeys || []).length > 0
-          ? `Images:
+    const firstImageUrl =
+      newOrder.imageKeys && newOrder.imageKeys.length > 0
+        ? `https://towber-api.shingsonz.workers.dev/api/upload/${newOrder.imageKeys[0]}\n\n`
+        : "";
+
+    const message = `${firstImageUrl}🚗 NEW TOWING ORDER 🚗
+
+📋 ORDER DETAILS
+• Customer: ${newOrder.customerName}
+• Phone: ${newOrder.phoneNumber}
+• License Plate: ${newOrder.licensePlate}
+• Service Type: ${newOrder.selectedService}
+
+⏰ TIME
+• Created: ${new Date(newOrder.createdAt).toLocaleString("en-US", {
+      timeZone: "America/Toronto",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      weekday: "long",
+      hour12: true,
+    })} EST
+
+${
+  (newOrder.imageKeys || []).length > 0
+    ? `📸 IMAGES
 ${(newOrder.imageKeys || [])
   .map(
     (key, index) =>
       `${index + 1}. https://towber-api.shingsonz.workers.dev/api/upload/${key}`
   )
   .join("\n")}`
-          : "Images: No images"
-      }
-      `;
+    : "📸 No images attached"
+}
+
+📍 LOCATION DETAILS
+• Pickup: ${newOrder.location}
+• Destination: ${newOrder.destination}
+• Maps Link: https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      newOrder.location
+    )}
+`;
 
     // Send the message to Telegram
     await sendTelegramMessage(message, c);
