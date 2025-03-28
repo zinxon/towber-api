@@ -20,6 +20,7 @@ export type Bindings = {
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_CHAT_ID: string;
   STRIPE_SECRET_KEY: string;
+  STRIPE_WEBHOOK_SECRET: string;
 };
 
 export type Variables = {
@@ -35,7 +36,7 @@ const towberOrderSchema = z.object({
   licensePlate: z.string().min(1),
   selectedService: z.enum(serviceEnum.enumValues),
   location: z.string().min(1),
-  destination: z.string().min(1),
+  destination: z.string().min(0),
   latitude: z.number().min(-90).max(90).transform(String),
   longitude: z.number().min(-180).max(180).transform(String),
   useWheel: z.boolean(),
@@ -66,7 +67,7 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
 
     // First create a product
     const product = await stripe.products.create({
-      name: `Towber Service - ${new Date(
+      name: `Towber Service - ${newOrder.customerName} - ${new Date(
         newOrder.createdAt
       ).toLocaleDateString()}`,
       metadata: {
@@ -74,6 +75,9 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
         customerName: newOrder.customerName,
         phoneNumber: newOrder.phoneNumber,
         serviceType: newOrder.selectedService,
+        location: newOrder.location,
+        destination: newOrder.destination,
+        licensePlate: newOrder.licensePlate,
       },
     });
 
@@ -243,6 +247,50 @@ towberOrders.get("/phone/:phoneNumber", async (c) => {
   } catch (error) {
     return c.json({ error: "Internal server error" }, 500);
   }
+});
+
+// Webhook endpoint
+towberOrders.post("/webhook", async (c) => {
+  const sig = c.req.header("stripe-signature");
+  const body = await c.req.text();
+  console.log(sig);
+  console.log(body);
+  let event;
+  // Initialize Stripe with the API key from environment
+  const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, {
+    apiVersion: "2023-10-16",
+  });
+
+  try {
+    // Use c.env to access environment variables
+    const webhookSecret = c.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+      console.error("Missing STRIPE_WEBHOOK_SECRET environment variable");
+      return c.json({ error: "Webhook configuration error" }, 500);
+    }
+
+    event = await stripe.webhooks.constructEventAsync(
+      body,
+      sig!,
+      webhookSecret
+    );
+  } catch (err) {
+    console.error(`Webhook Error: ${err}`);
+    return c.json({ error: "Webhook Error" }, 400);
+  }
+
+  // Handle the event
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object;
+
+    // Update the order status to paid
+    const orderId = session.metadata?.orderId; // Assuming you stored the order ID in metadata
+    await updateTowberOrder(orderId!, { orderStatus: "paid" }, c.get("db"));
+  }
+
+  // Return a response to acknowledge receipt of the event
+  return c.json({ received: true });
 });
 
 export default towberOrders;
