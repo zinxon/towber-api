@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { towberOrders } from "../schema";
 import { TowberOrder, NewTowberOrder } from "./types";
 import axios from "axios";
@@ -95,5 +95,6 @@ export async function getTowberOrdersByPhone(
   return await db
     .select()
     .from(towberOrders)
-    .where(eq(towberOrders.phoneNumber, phoneNumber));
+    .where(eq(towberOrders.phoneNumber, phoneNumber))
+    .orderBy(desc(towberOrders.createdAt));
 }
