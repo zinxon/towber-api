@@ -1,6 +1,7 @@
 import { Env, Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
+import Stripe from "stripe";
 import {
   createTowberOrder,
   getAllTowberOrders,
@@ -8,6 +9,7 @@ import {
   updateTowberOrder,
   deleteTowberOrder,
   sendTelegramMessage,
+  getTowberOrdersByPhone,
 } from "../db/queries/towber-orders";
 import { serviceEnum } from "../db/schema";
 import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
@@ -17,6 +19,7 @@ export type Bindings = {
   DATABASE_URL: string;
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_CHAT_ID: string;
+  STRIPE_SECRET_KEY: string;
 };
 
 export type Variables = {
@@ -37,6 +40,9 @@ const towberOrderSchema = z.object({
   longitude: z.number().min(-180).max(180).transform(String),
   useWheel: z.boolean(),
   imageKeys: z.array(z.string()).optional().default([]),
+  price: z.number().min(0).transform(String),
+  priceWithTax: z.number().min(0).transform(String),
+  distance: z.number().min(0).transform(String),
 });
 
 // Create order
@@ -53,6 +59,62 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
 
     const newOrder = await createTowberOrder(orderData, db);
 
+    // Create Stripe payment link
+    const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2023-10-16",
+    });
+
+    // First create a product
+    const product = await stripe.products.create({
+      name: `Towber Service - ${new Date(
+        newOrder.createdAt
+      ).toLocaleDateString()}`,
+      metadata: {
+        orderId: newOrder.id,
+        customerName: newOrder.customerName,
+        phoneNumber: newOrder.phoneNumber,
+        serviceType: newOrder.selectedService,
+      },
+    });
+
+    // Then create a price for the product
+    const price = await stripe.prices.create({
+      product: product.id,
+      currency: "cad",
+      unit_amount: Math.round(parseFloat(newOrder.priceWithTax) * 100), // Convert to cents
+      metadata: {
+        orderId: newOrder.id,
+        customerName: newOrder.customerName,
+        phoneNumber: newOrder.phoneNumber,
+        serviceType: newOrder.selectedService,
+      },
+    });
+
+    // Finally create the payment link using the price
+    const paymentLink = await stripe.paymentLinks.create({
+      line_items: [
+        {
+          price: price.id,
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        orderId: newOrder.id,
+        customerName: newOrder.customerName,
+        phoneNumber: newOrder.phoneNumber,
+        serviceType: newOrder.selectedService,
+      },
+    });
+
+    // Update the order with the payment link
+    await updateTowberOrder(
+      newOrder.id,
+      {
+        paymentLink: paymentLink.url,
+      },
+      db
+    );
+
     // Prepare the message to send to Telegram
     const firstImageUrl =
       newOrder.imageKeys && newOrder.imageKeys.length > 0
@@ -65,6 +127,9 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
 • Phone: ${newOrder.phoneNumber}
 • License Plate: ${newOrder.licensePlate}
 • Service Type: ${newOrder.selectedService}
+• Price: $${newOrder.price}
+• Price with Tax: $${newOrder.priceWithTax}
+• Distance: ${newOrder.distance} km
 ⏰ TIME
 • Created: ${new Date(newOrder.createdAt).toLocaleString("en-US", {
       timeZone: "America/Toronto",
@@ -160,6 +225,21 @@ towberOrders.delete("/:id", async (c) => {
       return c.json({ error: "Order not found" }, 404);
     }
     return new Response(null, { status: 204 });
+  } catch (error) {
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Get orders by phone number
+towberOrders.get("/phone/:phoneNumber", async (c) => {
+  try {
+    const phoneNumber = c.req.param("phoneNumber");
+    const db = c.get("db"); // Access the database instance
+    const orders = await getTowberOrdersByPhone(phoneNumber, db);
+    if (!orders || orders.length === 0) {
+      return c.json({ error: "No orders found for this phone number" }, 404);
+    }
+    return c.json(orders);
   } catch (error) {
     return c.json({ error: "Internal server error" }, 500);
   }

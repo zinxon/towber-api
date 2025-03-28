@@ -19,10 +19,15 @@ export const serviceEnum = megacitySchema.enum("service_type", [
   "breakdown",
   "stuck",
   "battery",
-  "flatTire",
+  "tireChange",
   "outOfGas",
   "other",
 ]);
+
+export const towberOrderStatusEnum = megacitySchema.enum(
+  "towber_order_status",
+  ["pending", "contacted", "paid"]
+);
 
 export const towberOrders = megacitySchema.table("towber_orders", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -35,6 +40,9 @@ export const towberOrders = megacitySchema.table("towber_orders", {
   latitude: numeric("latitude", { precision: 8, scale: 6 }).notNull(),
   longitude: numeric("longitude", { precision: 8, scale: 6 }).notNull(),
   useWheel: boolean("use_wheel").default(false).notNull(),
+  orderStatus: towberOrderStatusEnum("order_status")
+    .default("pending")
+    .notNull(),
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -42,4 +50,11 @@ export const towberOrders = megacitySchema.table("towber_orders", {
     .defaultNow()
     .notNull(),
   imageKeys: text("image_keys").array().default([]), // Store multiple image keys as an array
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  priceWithTax: numeric("price_with_tax", {
+    precision: 10,
+    scale: 2,
+  }).notNull(),
+  distance: numeric("distance", { precision: 10, scale: 2 }), // Distance in kilometers
+  paymentLink: text("payment_link"), // Stripe payment link
 });

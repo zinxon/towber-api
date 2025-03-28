@@ -17,10 +17,11 @@
     "hono": "^4.7.1",
     "nanoid": "^5.1.2",
     "pg": "^8.13.3",
-    "postgres": "^3.4.5"
+    "postgres": "^3.4.5",
+    "stripe": "^14.18.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250109.0",
-    "wrangler": "^3.101.0"
+    "wrangler": "4"
   }
 }

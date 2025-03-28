@@ -13,5 +13,6 @@ CREATE TABLE "megacity"."towber_orders" (
 	"longitude" numeric(8, 6) NOT NULL,
 	"use_wheel" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"image_keys" text[] DEFAULT '{}'
 );

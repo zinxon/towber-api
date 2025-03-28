@@ -86,3 +86,14 @@ export async function sendTelegramMessage(message: string, ctx: Context) {
     console.error("Error sending message to Telegram:", error);
   }
 }
+
+// Get orders by phone number
+export async function getTowberOrdersByPhone(
+  phoneNumber: string,
+  db: any // Accept the db instance
+): Promise<TowberOrder[]> {
+  return await db
+    .select()
+    .from(towberOrders)
+    .where(eq(towberOrders.phoneNumber, phoneNumber));
+}

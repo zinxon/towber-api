@@ -1,0 +1,1 @@
+ALTER TABLE "megacity"."towber_orders" ADD COLUMN "payment_link" text;

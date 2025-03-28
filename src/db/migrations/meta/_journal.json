@@ -15,6 +15,27 @@
       "when": 1741147071786,
       "tag": "0001_slippery_justin_hammer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1743042548051,
+      "tag": "0002_gray_mentallo",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1743043861687,
+      "tag": "0003_giant_skrulls",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1743127901534,
+      "tag": "0004_flawless_captain_midlands",
+      "breakpoints": true
     }
   ]
 }
