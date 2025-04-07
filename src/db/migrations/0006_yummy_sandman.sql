@@ -1,0 +1,2 @@
+CREATE TYPE "megacity"."vehicle_type" AS ENUM('FWD', 'RWD', 'AWD', 'Flatbed', 'HeavyDuty', 'ForkLift', 'Other');--> statement-breakpoint
+ALTER TABLE "megacity"."towber_orders" ADD COLUMN "vehicle_type" "megacity"."vehicle_type" NOT NULL;

@@ -36,6 +36,27 @@
       "when": 1743127901534,
       "tag": "0004_flawless_captain_midlands",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1743390398032,
+      "tag": "0005_loose_hobgoblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1743984500508,
+      "tag": "0006_yummy_sandman",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1743986185021,
+      "tag": "0007_magical_next_avengers",
+      "breakpoints": true
     }
   ]
 }

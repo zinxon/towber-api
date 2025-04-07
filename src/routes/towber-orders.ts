@@ -11,7 +11,7 @@ import {
   sendTelegramMessage,
   getTowberOrdersByPhone,
 } from "../db/queries/towber-orders";
-import { serviceEnum } from "../db/schema";
+import { serviceEnum, vehicleTypeEnum } from "../db/schema";
 import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import * as schema from "../db/schema";
 
@@ -35,11 +35,22 @@ const towberOrderSchema = z.object({
   phoneNumber: z.string().min(1),
   licensePlate: z.string().min(1),
   selectedService: z.enum(serviceEnum.enumValues),
+  vehicleType: z.enum(vehicleTypeEnum.enumValues),
   location: z.string().min(1),
   destination: z.string().min(0),
   latitude: z.number().min(-90).max(90).transform(String),
   longitude: z.number().min(-180).max(180).transform(String),
   useWheel: z.boolean(),
+  isBooking: z.boolean().default(false),
+  bookingDate: z
+    .string()
+    .datetime()
+    .transform((str) => new Date(str))
+    .optional(),
+  bookingTime: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .optional(),
   imageKeys: z.array(z.string()).optional().default([]),
   price: z.number().min(0).transform(String),
   priceWithTax: z.number().min(0).transform(String),
@@ -60,64 +71,67 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
 
     const newOrder = await createTowberOrder(orderData, db);
 
-    // Create Stripe payment link
-    const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, {
-      apiVersion: "2023-10-16",
-    });
+    // Only create payment link if priceWithTax is not 0
+    if (parseFloat(newOrder.priceWithTax) > 0) {
+      // Create Stripe payment link
+      const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, {
+        apiVersion: "2023-10-16",
+      });
 
-    // First create a product
-    const product = await stripe.products.create({
-      name: `Towber Service - ${newOrder.customerName} - ${new Date(
-        newOrder.createdAt
-      ).toLocaleDateString()}`,
-      metadata: {
-        orderId: newOrder.id,
-        customerName: newOrder.customerName,
-        phoneNumber: newOrder.phoneNumber,
-        serviceType: newOrder.selectedService,
-        location: newOrder.location,
-        destination: newOrder.destination,
-        licensePlate: newOrder.licensePlate,
-      },
-    });
-
-    // Then create a price for the product
-    const price = await stripe.prices.create({
-      product: product.id,
-      currency: "cad",
-      unit_amount: Math.round(parseFloat(newOrder.priceWithTax) * 100), // Convert to cents
-      metadata: {
-        orderId: newOrder.id,
-        customerName: newOrder.customerName,
-        phoneNumber: newOrder.phoneNumber,
-        serviceType: newOrder.selectedService,
-      },
-    });
-
-    // Finally create the payment link using the price
-    const paymentLink = await stripe.paymentLinks.create({
-      line_items: [
-        {
-          price: price.id,
-          quantity: 1,
+      // First create a product
+      const product = await stripe.products.create({
+        name: `Towber Service - ${newOrder.customerName} - ${new Date(
+          newOrder.createdAt
+        ).toLocaleDateString()}`,
+        metadata: {
+          orderId: newOrder.id,
+          customerName: newOrder.customerName,
+          phoneNumber: newOrder.phoneNumber,
+          serviceType: newOrder.selectedService,
+          location: newOrder.location,
+          destination: newOrder.destination,
+          licensePlate: newOrder.licensePlate,
         },
-      ],
-      metadata: {
-        orderId: newOrder.id,
-        customerName: newOrder.customerName,
-        phoneNumber: newOrder.phoneNumber,
-        serviceType: newOrder.selectedService,
-      },
-    });
+      });
 
-    // Update the order with the payment link
-    await updateTowberOrder(
-      newOrder.id,
-      {
-        paymentLink: paymentLink.url,
-      },
-      db
-    );
+      // Then create a price for the product
+      const price = await stripe.prices.create({
+        product: product.id,
+        currency: "cad",
+        unit_amount: Math.round(parseFloat(newOrder.priceWithTax) * 100), // Convert to cents
+        metadata: {
+          orderId: newOrder.id,
+          customerName: newOrder.customerName,
+          phoneNumber: newOrder.phoneNumber,
+          serviceType: newOrder.selectedService,
+        },
+      });
+
+      // Finally create the payment link using the price
+      const paymentLink = await stripe.paymentLinks.create({
+        line_items: [
+          {
+            price: price.id,
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          orderId: newOrder.id,
+          customerName: newOrder.customerName,
+          phoneNumber: newOrder.phoneNumber,
+          serviceType: newOrder.selectedService,
+        },
+      });
+
+      // Update the order with the payment link
+      await updateTowberOrder(
+        newOrder.id,
+        {
+          paymentLink: paymentLink.url,
+        },
+        db
+      );
+    }
 
     // Prepare the message to send to Telegram
     const firstImageUrl =
@@ -134,6 +148,11 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
 • Price: $${newOrder.price}
 • Price with Tax: $${newOrder.priceWithTax}
 • Distance: ${newOrder.distance} km
+${
+  parseFloat(newOrder.priceWithTax) === 0
+    ? "⚠️ OUT OF SERVICE - CONTACT CUSTOMER ⚠️"
+    : ""
+}
 ⏰ TIME
 • Created: ${new Date(newOrder.createdAt).toLocaleString("en-US", {
       timeZone: "America/Toronto",
@@ -249,6 +268,63 @@ towberOrders.get("/phone/:phoneNumber", async (c) => {
   }
 });
 
+// Create payment intent
+towberOrders.post("/create-payment-intent", async (c) => {
+  try {
+    const { orderId } = await c.req.json();
+    const db = c.get("db");
+
+    if (!orderId) {
+      return c.json({ error: "Order ID is required" }, 400);
+    }
+
+    // Get the order details
+    const order = await getTowberOrderById(orderId, db);
+    if (!order) {
+      return c.json({ error: "Order not found" }, 404);
+    }
+
+    // Initialize Stripe
+    const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2023-10-16",
+    });
+
+    // Create a payment intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(parseFloat(order.priceWithTax) * 100), // Convert to cents
+      currency: "cad",
+      metadata: {
+        orderId: order.id,
+        customerName: order.customerName,
+        phoneNumber: order.phoneNumber,
+        serviceType: order.selectedService,
+        location: order.location,
+        destination: order.destination,
+        licensePlate: order.licensePlate,
+      },
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    });
+
+    // Update the order with the payment intent ID
+    await updateTowberOrder(
+      orderId,
+      {
+        paymentIntentId: paymentIntent.id,
+      },
+      db
+    );
+
+    return c.json({
+      clientSecret: paymentIntent.client_secret,
+    });
+  } catch (error) {
+    console.error("Error creating payment intent:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
 // Webhook endpoint
 towberOrders.post("/webhook", async (c) => {
   const sig = c.req.header("stripe-signature");
@@ -291,6 +367,205 @@ towberOrders.post("/webhook", async (c) => {
 
   // Return a response to acknowledge receipt of the event
   return c.json({ received: true });
+});
+
+// Process payment for an order
+towberOrders.post("/process-payment", async (c) => {
+  try {
+    const {
+      orderId,
+      customerEmail,
+      cardNumber,
+      cardCvc,
+      cardExpMonth,
+      cardExpYear,
+    } = await c.req.json();
+
+    const db = c.get("db");
+
+    if (!orderId || !cardNumber || !cardCvc || !cardExpMonth || !cardExpYear) {
+      return c.json(
+        {
+          error:
+            "Order ID, card number, CVC, expiration month, and expiration year are required",
+        },
+        400
+      );
+    }
+
+    console.log(cardNumber, cardCvc, cardExpMonth, cardExpYear);
+
+    // Get the order details
+    const order = await getTowberOrderById(orderId, db);
+    if (!order) {
+      return c.json({ error: "Order not found" }, 404);
+    }
+
+    // Check if order is already paid
+    if (order.orderStatus === "paid") {
+      return c.json({ error: "Order is already paid" }, 400);
+    }
+
+    // Check if price is 0 (out of service)
+    if (parseFloat(order.priceWithTax) === 0) {
+      return c.json(
+        { error: "This order is out of service and requires manual contact" },
+        400
+      );
+    }
+
+    // Initialize Stripe
+    const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2023-10-16",
+    });
+
+    // Create or retrieve customer
+    let customer;
+    if (customerEmail) {
+      // Try to find existing customer by email
+      const customers = await stripe.customers.list({
+        email: customerEmail,
+        limit: 1,
+      });
+
+      if (customers.data.length > 0) {
+        customer = customers.data[0];
+      } else {
+        // Create new customer if not found
+        customer = await stripe.customers.create({
+          email: customerEmail,
+          name: order.customerName,
+          phone: order.phoneNumber,
+          metadata: {
+            orderId: order.id,
+          },
+        });
+      }
+    } else {
+      // Create a customer without email if not provided
+      customer = await stripe.customers.create({
+        name: order.customerName,
+        phone: order.phoneNumber,
+        metadata: {
+          orderId: order.id,
+        },
+      });
+    }
+
+    const paymentMethod = await stripe.paymentMethods.create({
+      type: "card",
+      card: {
+        number: cardNumber,
+        exp_month: cardExpMonth,
+        exp_year: cardExpYear,
+      },
+    });
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(parseFloat(order.priceWithTax) * 100), // Convert to cents
+      currency: "cad",
+      customer: customer.id,
+      payment_method: paymentMethod.id,
+      confirm: true, // Confirm the payment immediately
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    });
+
+    console.log(paymentIntent);
+    // Create a card for the customer using direct card details
+    // First create a token with the card details
+    // const token = await stripe.tokens.create({
+    //   card: {
+    //     number: cardNumber,
+    //     exp_month: cardExpMonth,
+    //     exp_year: cardExpYear,
+    //     cvc: cardCvc,
+    //   },
+    // });
+
+    // // Then create a source using the token
+    // const cardResponse = await stripe.customers.createSource(customer.id, {
+    //   source: token.id,
+    // });
+
+    // // Type assertion for the card object
+    // const card = cardResponse as Stripe.Card;
+
+    // console.log(card);
+
+    // // Create a charge
+    // const charge = await stripe.charges.create({
+    //   amount: Math.round(parseFloat(order.priceWithTax) * 100), // Convert to cents
+    //   currency: "cad",
+    //   source: card.id,
+    //   customer: customer.id,
+    //   description: `Towber Service - ${order.customerName} - Order ${order.id}`,
+    //   metadata: {
+    //     orderId: order.id,
+    //     customerName: order.customerName,
+    //     phoneNumber: order.phoneNumber,
+    //     serviceType: order.selectedService,
+    //     location: order.location,
+    //     destination: order.destination,
+    //     licensePlate: order.licensePlate,
+    //   },
+    // });
+
+    // Update the order status to paid
+    await updateTowberOrder(
+      orderId,
+      {
+        orderStatus: "paid",
+        // paymentIntentId: charge.id,
+      },
+      db
+    );
+
+    // Send confirmation message to Telegram
+    const message = `💰 PAYMENT RECEIVED 💰
+📋 ORDER DETAILS
+• Order ID: ${order.id}
+• Customer: ${order.customerName}
+• Phone: ${order.phoneNumber}
+• Service Type: ${order.selectedService}
+• Amount Paid: $${order.priceWithTax}
+• Customer ID: ${customer.id}
+• Payment Method ID: ${paymentMethod.id}
+⏰ TIME
+• Paid: ${new Date().toLocaleString("en-US", {
+      timeZone: "America/Toronto",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      weekday: "short",
+      hour12: true,
+    })}
+`;
+
+    await sendTelegramMessage(message, c);
+
+    return c.json({
+      success: true,
+      // charge,
+      customer: {
+        id: customer.id,
+        email: customer.email,
+      },
+      // card: {
+      //   id: card.id,
+      //   last4: card.last4,
+      //   brand: card.brand,
+      //   expMonth: card.exp_month,
+      //   expYear: card.exp_year,
+      // },
+    });
+  } catch (error) {
+    console.error("Payment processing error:", error);
+    return c.json({ error: "Payment processing failed" }, 500);
+  }
 });
 
 export default towberOrders;
