@@ -57,6 +57,13 @@
       "when": 1743986185021,
       "tag": "0007_magical_next_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1743987896128,
+      "tag": "0008_salty_doorman",
+      "breakpoints": true
     }
   ]
 }

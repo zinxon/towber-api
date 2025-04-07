@@ -52,8 +52,10 @@ export const towberOrders = megacitySchema.table("towber_orders", {
   longitude: numeric("longitude", { precision: 8, scale: 6 }).notNull(),
   useWheel: boolean("use_wheel").default(false).notNull(),
   isBooking: boolean("is_booking").default(false).notNull(),
-  bookingDate: timestamp("booking_date", { mode: "date", withTimezone: true }),
-  bookingTime: varchar("booking_time", { length: 8 }),
+  bookingDateTime: timestamp("booking_datetime", {
+    mode: "date",
+    withTimezone: true,
+  }),
   orderStatus: towberOrderStatusEnum("order_status")
     .default("pending")
     .notNull(),

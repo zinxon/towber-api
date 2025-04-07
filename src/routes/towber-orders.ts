@@ -43,14 +43,10 @@ const towberOrderSchema = z.object({
   longitude: z.number().min(-180).max(180).transform(String),
   useWheel: z.boolean(),
   isBooking: z.boolean().default(false),
-  bookingDate: z
+  bookingDateTime: z
     .string()
     .datetime()
     .transform((str) => new Date(str))
-    .optional(),
-  bookingTime: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
     .optional(),
   imageKeys: z.array(z.string()).optional().default([]),
   price: z.number().min(0).transform(String),
@@ -153,6 +149,23 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
 • Price: $${newOrder.price}
 • Price with Tax: $${newOrder.priceWithTax}
 • Distance: ${newOrder.distance} km
+${
+  newOrder.isBooking && newOrder.bookingDateTime
+    ? `• Booking Date: ${new Date(newOrder.bookingDateTime).toLocaleString(
+        "en-US",
+        {
+          timeZone: "America/Toronto",
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "numeric",
+          weekday: "short",
+          hour12: true,
+        }
+      )}`
+    : ""
+}
 ${
   parseFloat(newOrder.priceWithTax) === 0
     ? "⚠️ OUT OF SERVICE - CONTACT CUSTOMER ⚠️"
