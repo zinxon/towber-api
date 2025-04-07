@@ -19,6 +19,7 @@ export type Bindings = {
   DATABASE_URL: string;
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_CHAT_ID: string;
+  TELEGRAM_TEST_CHAT_ID: string;
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
 };
@@ -88,6 +89,7 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
           customerName: newOrder.customerName,
           phoneNumber: newOrder.phoneNumber,
           serviceType: newOrder.selectedService,
+          vehicleType: newOrder.vehicleType,
           location: newOrder.location,
           destination: newOrder.destination,
           licensePlate: newOrder.licensePlate,
@@ -104,6 +106,7 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
           customerName: newOrder.customerName,
           phoneNumber: newOrder.phoneNumber,
           serviceType: newOrder.selectedService,
+          vehicleType: newOrder.vehicleType,
         },
       });
 
@@ -120,6 +123,7 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
           customerName: newOrder.customerName,
           phoneNumber: newOrder.phoneNumber,
           serviceType: newOrder.selectedService,
+          vehicleType: newOrder.vehicleType,
         },
       });
 
@@ -145,6 +149,7 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
 • Phone: ${newOrder.phoneNumber}
 • License Plate: ${newOrder.licensePlate}
 • Service Type: ${newOrder.selectedService}
+• Vehicle Type: ${newOrder.vehicleType}
 • Price: $${newOrder.price}
 • Price with Tax: $${newOrder.priceWithTax}
 • Distance: ${newOrder.distance} km
@@ -184,7 +189,11 @@ ${(newOrder.imageKeys || [])
 `;
 
     // Send the message to Telegram
-    await sendTelegramMessage(message, c);
+    if (newOrder.customerName === "test") {
+      await sendTelegramMessage(message, c, true);
+    } else {
+      await sendTelegramMessage(message, c);
+    }
     return c.json(newOrder, 201);
   } catch (error) {
     console.error("Error creating order:", error);

@@ -64,9 +64,15 @@ export async function deleteTowberOrder(
 }
 
 // Function to send message to Telegram
-export async function sendTelegramMessage(message: string, ctx: Context) {
+export async function sendTelegramMessage(
+  message: string,
+  ctx: Context,
+  isTest: boolean = false
+) {
   const telegramBotToken = ctx.env.TELEGRAM_BOT_TOKEN; // Add your bot token to .dev.vars
-  const chatId = ctx.env.TELEGRAM_CHAT_ID; // Add your chat ID to .dev.vars
+  const chatId = isTest
+    ? ctx.env.TELEGRAM_TEST_CHAT_ID
+    : ctx.env.TELEGRAM_CHAT_ID; // Add your chat ID to .dev.vars
   console.log("telegramBotToken", telegramBotToken);
   if (!telegramBotToken || !chatId) {
     console.error("Telegram bot token or chat ID is not set.");
