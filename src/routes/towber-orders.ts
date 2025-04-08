@@ -53,6 +53,7 @@ const towberOrderSchema = z.object({
   priceWithTax: z.number().min(0).transform(String),
   distance: z.number().min(0).transform(String),
   referral: z.string().optional(),
+  openid: z.string().optional(),
 });
 
 // Create order
@@ -90,6 +91,8 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
           location: newOrder.location,
           destination: newOrder.destination,
           licensePlate: newOrder.licensePlate,
+          referral: newOrder.referral,
+          openid: newOrder.openid,
         },
       });
 
@@ -104,6 +107,11 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
           phoneNumber: newOrder.phoneNumber,
           serviceType: newOrder.selectedService,
           vehicleType: newOrder.vehicleType,
+          location: newOrder.location,
+          destination: newOrder.destination,
+          licensePlate: newOrder.licensePlate,
+          referral: newOrder.referral,
+          openid: newOrder.openid,
         },
       });
 
@@ -121,6 +129,11 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
           phoneNumber: newOrder.phoneNumber,
           serviceType: newOrder.selectedService,
           vehicleType: newOrder.vehicleType,
+          location: newOrder.location,
+          destination: newOrder.destination,
+          licensePlate: newOrder.licensePlate,
+          referral: newOrder.referral,
+          openid: newOrder.openid,
         },
       });
 
@@ -144,6 +157,7 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
 📋 ORDER DETAILS
 • Customer: ${newOrder.customerName}
 • Phone: ${newOrder.phoneNumber}
+${newOrder.referral ? `• Referral: ${newOrder.referral}` : ""}
 • License Plate: ${newOrder.licensePlate}
 • Service Type: ${newOrder.selectedService}
 • Vehicle Type: ${newOrder.vehicleType}

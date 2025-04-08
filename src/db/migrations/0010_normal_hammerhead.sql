@@ -1,0 +1,1 @@
+ALTER TABLE "megacity"."towber_orders" ADD COLUMN "openid" text;
