@@ -62,4 +62,34 @@ auth.post("/login", zValidator("json", loginSchema), async (c) => {
   }
 });
 
+// Get access token endpoint
+auth.get("/access-token", async (c) => {
+  try {
+    // Call WeChat API to get access token
+    const response = await axios.get(
+      `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${c.env.WECHAT_APP_ID}&secret=${c.env.WECHAT_APP_SECRET}`
+    );
+
+    const { access_token, expires_in, errcode, errmsg } = response.data;
+
+    // Check for WeChat API errors
+    if (errcode) {
+      console.error(`WeChat API error: ${errcode} - ${errmsg}`);
+      return c.json(
+        { error: "Failed to get access token", details: errmsg },
+        400
+      );
+    }
+
+    // Return the access token information
+    return c.json({
+      access_token,
+      expires_in,
+    });
+  } catch (error) {
+    console.error("Get access token error:", error);
+    return c.json({ error: "Failed to get access token" }, 500);
+  }
+});
+
 export default auth;
