@@ -52,6 +52,7 @@ const towberOrderSchema = z.object({
   price: z.number().min(0).transform(String),
   priceWithTax: z.number().min(0).transform(String),
   distance: z.number().min(0).transform(String),
+  referral: z.string().optional(),
 });
 
 // Create order

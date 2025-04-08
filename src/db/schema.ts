@@ -72,6 +72,7 @@ export const towberOrders = megacitySchema.table("towber_orders", {
     scale: 2,
   }).notNull(),
   distance: numeric("distance", { precision: 10, scale: 2 }), // Distance in kilometers
+  referral: text("referral"), // Referral code
   paymentLink: text("payment_link"), // Stripe payment link
   paymentIntentId: text("payment_intent_id"), // Stripe payment intent ID
 });

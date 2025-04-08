@@ -4,6 +4,7 @@ import { logger } from "hono/logger";
 import towberOrders from "./routes/towber-orders";
 import uploadRoutes from "./routes/upload";
 import authRoutes from "./routes/auth";
+import qrcodeRoutes from "./routes/qrcode";
 import { dbMiddleware } from "./middleware/db";
 
 // Define environment
@@ -55,5 +56,6 @@ app.get("/health", (c) =>
 app.route("/orders", towberOrders);
 app.route("/upload", uploadRoutes);
 app.route("/auth", authRoutes);
+app.route("/qrcode", qrcodeRoutes);
 
 export default app;
