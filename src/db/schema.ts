@@ -35,12 +35,14 @@ export const vehicleTypeEnum = megacitySchema.enum("vehicle_type", [
   "AWD",
   "Flatbed",
   "HeavyDuty",
+  "MediumDuty",
   "ForkLift",
   "Other",
 ]);
 
 export const towberOrders = megacitySchema.table("towber_orders", {
   id: uuid("id").primaryKey().defaultRandom(),
+  idempotencyKey: varchar("idempotency_key", { length: 256 }).unique(),
   customerName: text("customer_name").notNull(),
   phoneNumber: varchar("phone_number", { length: 256 }).notNull(),
   licensePlate: varchar("license_plate", { length: 20 }).notNull(),

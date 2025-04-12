@@ -1,0 +1,2 @@
+ALTER TABLE "megacity"."towber_orders" ADD COLUMN "idempotency_key" varchar(256);--> statement-breakpoint
+ALTER TABLE "megacity"."towber_orders" ADD CONSTRAINT "towber_orders_idempotency_key_unique" UNIQUE("idempotency_key");

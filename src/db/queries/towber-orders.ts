@@ -10,6 +10,18 @@ export async function createTowberOrder(
   db: any // Accept the db instance
 ): Promise<TowberOrder> {
   console.log("order", order);
+  // Check for existing order with the same idempotency key if provided
+  if (order.idempotencyKey) {
+    const [existingOrder] = await db
+      .select()
+      .from(towberOrders)
+      .where(eq(towberOrders.idempotencyKey, order.idempotencyKey));
+
+    if (existingOrder) {
+      return existingOrder;
+    }
+  }
+
   const [newOrder] = await db.insert(towberOrders).values(order).returning();
   console.log("newOrder", newOrder);
   return newOrder;

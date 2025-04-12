@@ -1,0 +1,1 @@
+ALTER TYPE "megacity"."vehicle_type" ADD VALUE 'MediumDuty' BEFORE 'ForkLift';

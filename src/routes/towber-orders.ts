@@ -11,9 +11,14 @@ import {
   sendTelegramMessage,
   getTowberOrdersByPhone,
 } from "../db/queries/towber-orders";
-import { serviceEnum, vehicleTypeEnum } from "../db/schema";
+import {
+  serviceEnum,
+  vehicleTypeEnum,
+  towberOrders as towberOrdersSchema,
+} from "../db/schema";
 import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import * as schema from "../db/schema";
+import { eq } from "drizzle-orm";
 
 export type Bindings = {
   DATABASE_URL: string;
@@ -61,11 +66,26 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
   try {
     const data = c.req.valid("json");
     const db = c.get("db"); // Access the database instance
+    const idempotencyKey = c.req.header("Idempotency-Key");
+
+    // Check if order with the same idempotency key exists
+    if (idempotencyKey) {
+      const [existingOrder] = await db
+        .select()
+        .from(towberOrdersSchema)
+        .where(eq(towberOrdersSchema.idempotencyKey, idempotencyKey));
+
+      if (existingOrder) {
+        // Return the existing order if found
+        return c.json(existingOrder, 200);
+      }
+    }
 
     // Ensure imageKeys is included in the data
     const orderData = {
       ...data,
       imageKeys: data.imageKeys || [], // Ensure imageKeys is always an array
+      ...(idempotencyKey && { idempotencyKey }), // Add idempotency key if provided
     };
 
     const newOrder = await createTowberOrder(orderData, db);
