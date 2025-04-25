@@ -2,6 +2,7 @@ import { Env, Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import Stripe from "stripe";
+import { cors } from "hono/cors";
 import {
   createTowberOrder,
   getAllTowberOrders,
@@ -34,6 +35,49 @@ export type Variables = {
 };
 
 const towberOrders = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+
+// Configure CORS
+towberOrders.use(
+  "/*",
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "https://towber.shingsonz.com",
+      "https://www.towber.app",
+      "*",
+    ],
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Idempotency-Key",
+      "idempotency-key",
+    ],
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    exposeHeaders: [
+      "Content-Length",
+      "X-Kuma-Revision",
+      "Idempotency-Key",
+      "idempotency-key",
+    ],
+    maxAge: 600,
+    credentials: true,
+  })
+);
+
+// Add explicit OPTIONS handler for preflight requests
+towberOrders.options("/*", (c) => {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": c.req.header("Origin") || "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+      "Access-Control-Allow-Headers":
+        "Content-Type, Authorization, Idempotency-Key, idempotency-key",
+      "Access-Control-Max-Age": "600",
+      "Access-Control-Allow-Credentials": "true",
+    },
+  });
+});
 
 // Validation schema
 const towberOrderSchema = z.object({
@@ -177,13 +221,13 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
 📋 ORDER DETAILS
 • Customer: ${newOrder.customerName}
 • Phone: ${newOrder.phoneNumber}
-${newOrder.referral ? `• Referral: ${newOrder.referral}` : ""}
 • License Plate: ${newOrder.licensePlate}
 • Service Type: ${newOrder.selectedService}
 • Vehicle Type: ${newOrder.vehicleType}
 • Price: $${newOrder.price}
 • Price with Tax: $${newOrder.priceWithTax}
 • Distance: ${newOrder.distance} km
+${newOrder.referral ? `• Referral: ${newOrder.referral}` : ""}
 ${
   newOrder.isBooking && newOrder.bookingDateTime
     ? `• Booking Date: ${new Date(newOrder.bookingDateTime).toLocaleString(
