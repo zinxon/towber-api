@@ -112,16 +112,27 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
     const db = c.get("db"); // Access the database instance
     const idempotencyKey = c.req.header("Idempotency-Key");
 
+    console.log("🚀 Starting order creation process");
+
     // Check if order with the same idempotency key exists
     if (idempotencyKey) {
-      const [existingOrder] = await db
-        .select()
-        .from(towberOrdersSchema)
-        .where(eq(towberOrdersSchema.idempotencyKey, idempotencyKey));
+      console.log(
+        "🔍 Checking for existing order with idempotency key:",
+        idempotencyKey
+      );
+      try {
+        const [existingOrder] = await db
+          .select()
+          .from(towberOrdersSchema)
+          .where(eq(towberOrdersSchema.idempotencyKey, idempotencyKey));
 
-      if (existingOrder) {
-        // Return the existing order if found
-        return c.json(existingOrder, 200);
+        if (existingOrder) {
+          console.log("✅ Found existing order, returning:", existingOrder.id);
+          return c.json(existingOrder, 200);
+        }
+      } catch (dbError) {
+        console.error("❌ Database check failed:", dbError);
+        throw new Error(`Database connection failed: ${dbError}`);
       }
     }
 
@@ -132,83 +143,98 @@ towberOrders.post("/", zValidator("json", towberOrderSchema), async (c) => {
       ...(idempotencyKey && { idempotencyKey }), // Add idempotency key if provided
     };
 
-    const newOrder = await createTowberOrder(orderData, db);
+    console.log("💾 Creating new order in database");
+    let newOrder;
+    try {
+      newOrder = await createTowberOrder(orderData, db);
+      console.log("✅ Order created successfully:", newOrder.id);
+    } catch (dbError) {
+      console.error("❌ Database insert failed:", dbError);
+      throw new Error(`Database insert failed: ${dbError}`);
+    }
 
     // Only create payment link if priceWithTax is not 0
     if (parseFloat(newOrder.priceWithTax) > 0) {
-      // Create Stripe payment link
-      const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, {
-        apiVersion: "2023-10-16",
-      });
+      console.log("💳 Creating Stripe payment link");
+      try {
+        // Create Stripe payment link
+        const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, {
+          apiVersion: "2023-10-16",
+        });
 
-      // First create a product
-      const product = await stripe.products.create({
-        name: `Towber Service - ${newOrder.customerName} - ${new Date(
-          newOrder.createdAt
-        ).toLocaleDateString()}`,
-        metadata: {
-          orderId: newOrder.id,
-          customerName: newOrder.customerName,
-          phoneNumber: newOrder.phoneNumber,
-          serviceType: newOrder.selectedService,
-          vehicleType: newOrder.vehicleType,
-          location: newOrder.location,
-          destination: newOrder.destination,
-          licensePlate: newOrder.licensePlate,
-          referral: newOrder.referral,
-          openid: newOrder.openid,
-        },
-      });
-
-      // Then create a price for the product
-      const price = await stripe.prices.create({
-        product: product.id,
-        currency: "cad",
-        unit_amount: Math.round(parseFloat(newOrder.priceWithTax) * 100), // Convert to cents
-        metadata: {
-          orderId: newOrder.id,
-          customerName: newOrder.customerName,
-          phoneNumber: newOrder.phoneNumber,
-          serviceType: newOrder.selectedService,
-          vehicleType: newOrder.vehicleType,
-          location: newOrder.location,
-          destination: newOrder.destination,
-          licensePlate: newOrder.licensePlate,
-          referral: newOrder.referral,
-          openid: newOrder.openid,
-        },
-      });
-
-      // Finally create the payment link using the price
-      const paymentLink = await stripe.paymentLinks.create({
-        line_items: [
-          {
-            price: price.id,
-            quantity: 1,
+        // First create a product
+        const product = await stripe.products.create({
+          name: `Towber Service - ${newOrder.customerName} - ${new Date(
+            newOrder.createdAt
+          ).toLocaleDateString()}`,
+          metadata: {
+            orderId: newOrder.id,
+            customerName: newOrder.customerName,
+            phoneNumber: newOrder.phoneNumber,
+            serviceType: newOrder.selectedService,
+            vehicleType: newOrder.vehicleType,
+            location: newOrder.location,
+            destination: newOrder.destination,
+            licensePlate: newOrder.licensePlate,
+            referral: newOrder.referral,
+            openid: newOrder.openid,
           },
-        ],
-        metadata: {
-          orderId: newOrder.id,
-          customerName: newOrder.customerName,
-          phoneNumber: newOrder.phoneNumber,
-          serviceType: newOrder.selectedService,
-          vehicleType: newOrder.vehicleType,
-          location: newOrder.location,
-          destination: newOrder.destination,
-          licensePlate: newOrder.licensePlate,
-          referral: newOrder.referral,
-          openid: newOrder.openid,
-        },
-      });
+        });
 
-      // Update the order with the payment link
-      await updateTowberOrder(
-        newOrder.id,
-        {
-          paymentLink: paymentLink.url,
-        },
-        db
-      );
+        // Then create a price for the product
+        const price = await stripe.prices.create({
+          product: product.id,
+          currency: "cad",
+          unit_amount: Math.round(parseFloat(newOrder.priceWithTax) * 100), // Convert to cents
+          metadata: {
+            orderId: newOrder.id,
+            customerName: newOrder.customerName,
+            phoneNumber: newOrder.phoneNumber,
+            serviceType: newOrder.selectedService,
+            vehicleType: newOrder.vehicleType,
+            location: newOrder.location,
+            destination: newOrder.destination,
+            licensePlate: newOrder.licensePlate,
+            referral: newOrder.referral,
+            openid: newOrder.openid,
+          },
+        });
+
+        // Finally create the payment link using the price
+        const paymentLink = await stripe.paymentLinks.create({
+          line_items: [
+            {
+              price: price.id,
+              quantity: 1,
+            },
+          ],
+          metadata: {
+            orderId: newOrder.id,
+            customerName: newOrder.customerName,
+            phoneNumber: newOrder.phoneNumber,
+            serviceType: newOrder.selectedService,
+            vehicleType: newOrder.vehicleType,
+            location: newOrder.location,
+            destination: newOrder.destination,
+            licensePlate: newOrder.licensePlate,
+            referral: newOrder.referral,
+            openid: newOrder.openid,
+          },
+        });
+
+        // Update the order with the payment link
+        await updateTowberOrder(
+          newOrder.id,
+          {
+            paymentLink: paymentLink.url,
+          },
+          db
+        );
+        console.log("✅ Stripe payment link created successfully");
+      } catch (stripeError) {
+        console.error("❌ Stripe API failed:", stripeError);
+        throw new Error(`Stripe API connection failed: ${stripeError}`);
+      }
     }
 
     // Prepare the message to send to Telegram
@@ -281,15 +307,28 @@ ${(newOrder.imageKeys || [])
 `;
 
     // Send the message to Telegram
-    if (newOrder.customerName === "test") {
-      await sendTelegramMessage(message, c, true);
-    } else {
-      await sendTelegramMessage(message, c);
+    console.log("📱 Sending Telegram notification");
+    try {
+      if (newOrder.customerName === "test") {
+        await sendTelegramMessage(message, c, true);
+      } else {
+        await sendTelegramMessage(message, c);
+      }
+      console.log("✅ Telegram message sent successfully");
+    } catch (telegramError) {
+      console.error("❌ Telegram API failed:", telegramError);
+      throw new Error(`Telegram API connection failed: ${telegramError}`);
     }
+
     return c.json(newOrder, 201);
-  } catch (error) {
-    console.error("Error creating order:", error);
-    return c.json({ error: "Internal server error" }, 500);
+  } catch (error: unknown) {
+    console.error("❌ Error creating order:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error occurred";
+    return c.json(
+      { error: "Internal server error", details: errorMessage },
+      500
+    );
   }
 });
 

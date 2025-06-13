@@ -85,10 +85,19 @@ export async function sendTelegramMessage(
   const chatId = isTest
     ? ctx.env.TELEGRAM_TEST_CHAT_ID
     : ctx.env.TELEGRAM_CHAT_ID; // Add your chat ID to .dev.vars
-  console.log("telegramBotToken", telegramBotToken);
+
+  console.log("📱 Telegram config check:");
+  console.log("- Bot token exists:", !!telegramBotToken);
+  console.log("- Chat ID exists:", !!chatId);
+  console.log("- Is test mode:", isTest);
+
   if (!telegramBotToken || !chatId) {
-    console.error("Telegram bot token or chat ID is not set.");
-    return;
+    console.error("❌ Telegram bot token or chat ID is not set.");
+    throw new Error(
+      "Telegram configuration missing: " +
+        (!telegramBotToken ? "TELEGRAM_BOT_TOKEN " : "") +
+        (!chatId ? (isTest ? "TELEGRAM_TEST_CHAT_ID" : "TELEGRAM_CHAT_ID") : "")
+    );
   }
 
   const url = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
@@ -97,11 +106,39 @@ export async function sendTelegramMessage(
     text: message,
   };
 
+  console.log(
+    "📡 Attempting to send to Telegram API:",
+    url.replace(telegramBotToken, "***")
+  );
+
   try {
-    await axios.post(url, payload);
-    console.log("Message sent to Telegram:", message);
-  } catch (error) {
-    console.error("Error sending message to Telegram:", error);
+    const response = await axios.post(url, payload, {
+      timeout: 10000, // 10 second timeout
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    console.log("✅ Message sent to Telegram successfully");
+    return response.data;
+  } catch (error: unknown) {
+    console.error("❌ Error sending message to Telegram:");
+    if (axios.isAxiosError(error)) {
+      console.error("- Status:", error.response?.status);
+      console.error("- Status Text:", error.response?.statusText);
+      console.error("- Response Data:", error.response?.data);
+      console.error(
+        "- Request URL:",
+        error.config?.url?.replace(telegramBotToken, "***")
+      );
+      console.error("- Timeout:", error.code === "ECONNABORTED");
+      console.error(
+        "- Network Error:",
+        error.code === "ENOTFOUND" || error.code === "ECONNREFUSED"
+      );
+    } else {
+      console.error("- Unknown error:", error);
+    }
+    throw error;
   }
 }
 
