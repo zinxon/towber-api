@@ -11,5 +11,7 @@ jobs:
     steps:
       - name: Send keep-alive request
         run: |
-          echo "Pinging Supabase endpoint..."
-          curl -I https://sukjtbgoudpowcgykcxe.supabase.co/rest/v1/ || true
+          echo "Pinging Supabase with anon key..."
+          curl -I https://sukjtbgoudpowcgykcxe.supabase.co/rest/v1/ \
+          -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" || true
