@@ -9,9 +9,19 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Send keep-alive request
+      - name: Send keep-alive requests to both Supabase projects
         run: |
-          echo "Pinging Supabase with anon key..."
-          curl -I https://sukjtbgoudpowcgykcxe.supabase.co/rest/v1/ \
-          -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" || true
+          echo "Pinging Supabase instances with anon key..."
+          
+          SUPABASE_URLS=(
+            "https://sukjtbgoudpowcgykcxe.supabase.co/rest/v1/"
+            "https://bcwqxaqoonwqlgipirbw.supabase.co/rest/v1/"
+          )
+
+          for URL in "${SUPABASE_URLS[@]}"; do
+            echo "Pinging $URL ..."
+            curl -I "$URL" \
+              -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+              -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+              || echo "Failed to ping $URL"
+          done
