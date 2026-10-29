@@ -14,4 +14,10 @@
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx"
   },
+  "include": [
+    "src",
+    "cloudflare.config.ts",
+    "wrangler.config.ts",
+    ".cloudflare/types"
+  ]
 }

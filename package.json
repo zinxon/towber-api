@@ -1,8 +1,10 @@
 {
   "name": "towber-api",
+  "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy --minify",
+    "dev": "cf dev",
+    "build": "cf build",
+    "deploy": "cf deploy",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push:pg"
@@ -14,7 +16,7 @@
     "drizzle-kit": "^0.30.4",
     "drizzle-orm": "^0.39.3",
     "drizzle-zod": "^0.7.0",
-    "hono": "^4.7.1",
+    "hono": "^4.13.14",
     "nanoid": "^5.1.2",
     "pg": "^8.13.3",
     "postgres": "^3.4.5",
@@ -22,6 +24,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250109.0",
-    "wrangler": "4"
+    "cf": "1.0.0-beta.25",
+    "wrangler": "^4.156.0"
   }
 }

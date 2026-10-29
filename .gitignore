@@ -13,7 +13,9 @@ dist/
 
 # deps
 node_modules/
+.pnpm-store/
 .wrangler
+.cloudflare/
 
 # env
 .env
