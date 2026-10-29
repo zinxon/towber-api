@@ -9,7 +9,8 @@ export default {
   out: "./src/db/migrations",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    // Neon: use direct (unpooled) for migrations; pooled for app traffic
+    url: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL!,
   },
   verbose: true,
   strict: true,
